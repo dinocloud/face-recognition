@@ -1,6 +1,7 @@
 RIGHT = "RIGHT"
 LEFT = "LEFT"
 
+
 def inside_convex_polygon(point, vertices):
     previous_side = None
     n_vertices = len(vertices)
@@ -17,6 +18,7 @@ def inside_convex_polygon(point, vertices):
             return False
     return True
 
+
 def get_side(a, b):
     x = x_product(a, b)
     if x < 0:
@@ -26,8 +28,10 @@ def get_side(a, b):
     else:
         return None
 
+
 def v_sub(a, b):
     return (a[0]-b[0], a[1]-b[1])
+
 
 def x_product(a, b):
     return a[0]*b[1]-a[1]*b[0]

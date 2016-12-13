@@ -5,8 +5,9 @@ from person import Person
 
 class Camera:
 
-    def __init__(self, source, description, in_area_points, out_area_points, critical_area_points,
+    def __init__(self, id, source, description, in_area_points, out_area_points, critical_area_points,
                  count_in=0, count_out=0, max_person_age=5, detection_area=300):
+        self.id = id
         self.source = source
         self.description = description
         self.in_area_points = in_area_points
