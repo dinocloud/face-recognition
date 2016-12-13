@@ -4,6 +4,10 @@ import sys
 from person import Person, MultiPerson
 from utils import inside_convex_polygon
 
+print "########################DEPPRECATED#################################"
+print "Use main_objects.py instead."
+print "########################DEPPRECATED#################################"
+
 #Main variable that opens the video file
 capture = cv2.VideoCapture(0)
 
@@ -25,7 +29,9 @@ font = cv2.FONT_HERSHEY_SIMPLEX
 
 #Frame dimensions
 frame_width = capture.get(3)
+print "Width: " + str(frame_width)
 frame_height = capture.get(4)
+print "Height: " +  str(frame_height)
 
 #GEOMETRIC CONSTANTS
 IN_LINE_POINTS = [[0, (frame_height * 1 / 4)],[frame_width, (frame_height * 1 / 4)]]
