@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 from utils import inside_convex_polygon
 from person import Person
+from database import save_movement
 
 class Camera:
 
@@ -19,6 +20,7 @@ class Camera:
         self.detection_area = detection_area
         self.people = []
         self.person_id = 1
+        self.people_detected = {}
         self.font = cv2.FONT_HERSHEY_SIMPLEX
 
     def draw_person_road(self, frame):
@@ -38,7 +40,7 @@ class Camera:
                         cv2.LINE_AA)
         return frame
 
-    def draw_person(self, frame, cx, cy, x, y, w, h):
+    def draw_person(self, frame, cx, cy, x, y, w, h, id=0):
         """
         Used for drawing a person dimensions.
         :param frame: the frame where to draw
@@ -50,6 +52,7 @@ class Camera:
         :param h: the height of the rectangle
         """
         cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)
+        cv2.putText(frame, str(id), (cx, cy), self.font, fontScale=4, color=(0, 0, 255), thickness=3)
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         # cv2.drawContours(frame, cnt, -1, (0, 255, 0), 3)
 
@@ -58,32 +61,48 @@ class Camera:
         Method that iterates over the persons array and counts how many people are entering and how many are going outside.
         """
         deletable_index = []
+        area_weight = 2
         for index, person in enumerate(self.people):
             crit_area = False
             in_area = False
             out_area = False
+            crit_weight = 0
+            in_weight = 0
+            out_weight = 0
             for track in person.getTracks():
                 if inside_convex_polygon((track[0], track[1]), self.critical_area_points):
-                    crit_area = True
+                    crit_weight+=1
+                    if crit_weight == area_weight:
+                        crit_area = True
+                        continue
                 if crit_area:
                     if inside_convex_polygon((track[0], track[1]), self.in_area_points):
-                        in_area = True
-                        break
+                        in_weight+=1
+                        if in_weight == area_weight:
+                            in_area = True
+                            break
                     if inside_convex_polygon((track[0], track[1]), self.out_area_points):
-                        out_area = True
-                        break
-            if crit_area and in_area:
+                        out_weight+=1
+                        if out_weight == area_weight:
+                            out_area = True
+                            break
+            if crit_area and in_area and not self.people_detected[person.getId()]:
                 self.count_in += 1
-                print "Added in person. In: " + str(self.count_in)
+                save_movement("in", self.id)
+                print "Added in person. Id: " + str(person.getId()) + " In: " + str(self.count_in)
                 deletable_index.append(index)
-            if crit_area and out_area:
+                self.people_detected[person.getId()] = True
+            if crit_area and out_area and not self.people_detected[person.getId()]:
                 self.count_out += 1
-                print "Added out person. Out: " + str(self.count_out)
+                save_movement("out", self.id)
+                print "Added out person. Id: " + str(person.getId()) + " Out: " + str(self.count_out)
                 deletable_index.append(index)
+                self.people_detected[person.getId()] = True
         self.people = [person for index, person in enumerate(self.people) if index not in deletable_index]
 
     def start_capture(self):
-        capture = cv2.VideoCapture(self.source)
+        capture = cv2.VideoCapture()
+        capture.open(self.source)
         background_substractor = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
         kernel_open = np.ones((3, 3), np.uint8)
         kernel_close = np.ones((11, 11), np.uint8)
@@ -108,14 +127,15 @@ class Camera:
             in_area = np.array(self.in_area_points, np.int32).reshape((-1, 1, 2))
             out_area = np.array(self.out_area_points, np.int32).reshape((-1, 1, 2))
             critical_area = np.array(self.critical_area_points, np.int32).reshape((-1, 1, 2))
-            frame = cv2.polylines(frame, [in_area], False, color=(255, 0, 0), thickness=2)
-            frame = cv2.polylines(frame, [out_area], False, color=(0, 255, 0), thickness=2)
+            #frame = cv2.polylines(frame, [in_area], isClosed=True, color=(255, 0, 0), thickness=2)
+            #frame = cv2.polylines(frame, [out_area], isClosed=True, color=(0, 255, 0), thickness=2)
             frame2 = frame.copy()
             frame2 = cv2.fillPoly(frame2, pts=[critical_area], color=(0, 0, 255))
             opacity = 0.5
             cv2.addWeighted(frame2, opacity, frame, 1 - opacity, 0, frame)
             _, contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
+            id_moving = []
             for contour in contours:
                 # cv2.drawContours(frame, cnt, -1, (0, 255, 0), 3, 8)
                 area = cv2.contourArea(contour)
@@ -134,18 +154,22 @@ class Camera:
                             # The person is near another one that was already detected
                             new_person = False
                             person.updateCoords(cx, cy)  # Update this person coordinates
-                            self.draw_person(frame, cx, cy, x_rect, y_rect, w_rect, h_rect)
+                            self.draw_person(frame, cx, cy, x_rect, y_rect, w_rect, h_rect, person.getId())
+                            id_moving.append(person.getId())
                             break
 
-                    if new_person and inside_convex_polygon((cx, cy), self.critical_area_points):
+                    if new_person: #and inside_convex_polygon((cx, cy), self.critical_area_points):
                         p = Person(self.person_id, cx, cy, self.max_person_age)
                         self.people.append(p)
+                        self.people_detected[self.person_id] = False
                         self.person_id += 1
-                        self.draw_person(frame, cx, cy, x_rect, y_rect, w_rect, h_rect)
+                        self.draw_person(frame, cx, cy, x_rect, y_rect, w_rect, h_rect, p.getId())
+                        id_moving.append(p.getId())
                         print "New person, init points: %s,%s. Total: %s" % (cx, cy, str(len(self.people)))
 
+            self.people = [person for person in self.people if person.getId() in id_moving]
             self.calculate_in_and_out()
-            cv2.imshow('Frame', frame)
+            cv2.imshow(self.description, frame)
 
             # Abort and exit with 'Q' or ESC
             k = cv2.waitKey(30) & 0xff
@@ -153,4 +177,4 @@ class Camera:
                 break
 
         capture.release()  # release video file
-        cv2.destroyAllWindows()  # close all openCV windows
+        #cv2.destroyAllWindows()  # close all openCV windows

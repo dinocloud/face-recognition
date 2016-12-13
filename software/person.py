@@ -5,8 +5,8 @@ import time
 class Person:
     tracks = []
 
-    def __init__(self, i, xi, yi, max_age):
-        self.i = i
+    def __init__(self, id, xi, yi, max_age):
+        self.i = id
         self.x = xi
         self.y = yi
         self.tracks = []

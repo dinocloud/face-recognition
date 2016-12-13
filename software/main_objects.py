@@ -1,14 +1,25 @@
 import cv2
 import sys
 import yaml
+from threading import Thread
 from camera import Camera
+from database import configure_database_connection
 
 
-def config_cameras_from_file(yaml_file):
-    cameras = []
+def get_configuration_from_file(yaml_file):
     with open(yaml_file, 'r') as file:
         config = yaml.load(file)
+    return config
 
+
+def config_database(config):
+    config = config.get("database")
+    configure_database_connection(config.get("engine"), config.get("server"), config.get("username"),
+                                  config.get("password"), config.get("database"))
+
+
+def config_cameras(config):
+    cameras = []
     for camera in config.get("cameras", {}):
         in_area_points = []
         out_area_points = []
@@ -32,9 +43,19 @@ def config_cameras_from_file(yaml_file):
 
 
 def main(args):
-    cameras = config_cameras_from_file("config/config.yml")
+    configuration = get_configuration_from_file("config/config.yml")
+    config_database(configuration)
+    cameras = config_cameras(configuration)
+    threads = []
+
     for camera in cameras:
-        camera.start_capture()
+        t = Thread(target=camera.start_capture())
+        threads.append(t)
+
+    for thread in threads:
+        thread.start()
+
+    cv2.waitKey(0)
     cv2.destroyAllWindows()  # close all openCV windows
     sys.exit(0)
 

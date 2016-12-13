@@ -1,21 +1,47 @@
+database:
+  engine: 'mysql' #Available database engines at http://docs.sqlalchemy.org/en/latest/core/engines.html
+  server: 'localhost'
+  database: 'people-recognition'
+  username: 'root'
+  password: 'armenia'
 cameras:
   - id: 1
-    source: 0
+    source: 'http://96.10.1.168/axis-cgi/mjpg/video.cgi?resolution=640x480'
     description: "Main Camera"
     in_area:
-      - '0;0'
-      - '0;120'
-      - '640;120'
-      - '640;0'
+      - '0;50'
+      - '0;150'
+      - '640;150'
+      - '640;50'
     out_area:
-      - '0;480'
-      - '0;360'
-      - '640;360'
-      - '640;480'
+      - '0;400'
+      - '0;300'
+      - '640;300'
+      - '640;400'
     critical_area:
-      - '0;120'
-      - '640;120'
-      - '640;360'
-      - '0;360'
+      - '0;150'
+      - '640;150'
+      - '640;300'
+      - '0;300'
     max_person_age: 5
-    detection_area: 300
+    detection_area: 600
+  - id: 2
+    source: 'http://plazacam.studentaffairs.duke.edu/axis-cgi/mjpg/video.cgi?resolution=640x480'
+    description: "University"
+    in_area:
+      - '0;50'
+      - '0;200'
+      - '640;200'
+      - '640;50'
+    out_area:
+      - '0;400'
+      - '0;300'
+      - '640;300'
+      - '640;400'
+    critical_area:
+      - '0;200'
+      - '640;200'
+      - '640;300'
+      - '0;300'
+    max_person_age: 5
+    detection_area: 150
