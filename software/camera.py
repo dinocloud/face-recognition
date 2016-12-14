@@ -1,8 +1,11 @@
 import numpy as np
 import cv2
+import urllib
+import platform
 from utils import inside_convex_polygon
 from person import Person
 from database import save_movement
+
 
 class Camera:
 
@@ -23,7 +26,7 @@ class Camera:
         self.people_detected = {}
         self.font = cv2.FONT_HERSHEY_SIMPLEX
 
-    def draw_person_road(self, frame):
+    def __draw_person_road(self, frame):
         """
         Used for drawing people roads
         :param frame: the frame where to place the drawing
@@ -40,7 +43,7 @@ class Camera:
                         cv2.LINE_AA)
         return frame
 
-    def draw_person(self, frame, cx, cy, x, y, w, h, id=0):
+    def __draw_person(self, frame, cx, cy, x, y, w, h, id=0):
         """
         Used for drawing a person dimensions.
         :param frame: the frame where to draw
@@ -56,7 +59,7 @@ class Camera:
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         # cv2.drawContours(frame, cnt, -1, (0, 255, 0), 3)
 
-    def calculate_in_and_out(self):
+    def __calculate_in_and_out(self):
         """
         Method that iterates over the persons array and counts how many people are entering and how many are going outside.
         """
@@ -100,7 +103,90 @@ class Camera:
                 self.people_detected[person.getId()] = True
         self.people = [person for index, person in enumerate(self.people) if index not in deletable_index]
 
-    def start_capture(self):
+    def __process_streaming(self, frame, fgmask, kernel_open, kernel_close):
+        try:
+            ret, imBin = cv2.threshold(fgmask, 200, 255, cv2.THRESH_BINARY)
+            # Opening (erode->dilate) para quitar ruido.
+            mask = cv2.morphologyEx(imBin, cv2.MORPH_OPEN, kernel_open)
+            # Closing (dilate -> erode) para juntar regiones blancas.
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close)
+        except:
+            # if there are no more frames to show...
+            print('EOF')
+            raise
+            # Draw the different areas
+        in_area = np.array(self.in_area_points, np.int32).reshape((-1, 1, 2))
+        out_area = np.array(self.out_area_points, np.int32).reshape((-1, 1, 2))
+        critical_area = np.array(self.critical_area_points, np.int32).reshape((-1, 1, 2))
+        # frame = cv2.polylines(frame, [in_area], isClosed=True, color=(255, 0, 0), thickness=2)
+        # frame = cv2.polylines(frame, [out_area], isClosed=True, color=(0, 255, 0), thickness=2)
+        frame2 = frame.copy()
+        frame2 = cv2.fillPoly(frame2, pts=[critical_area], color=(0, 0, 255))
+        opacity = 0.5
+        cv2.addWeighted(frame2, opacity, frame, 1 - opacity, 0, frame)
+        _, contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+        id_moving = []
+        for contour in contours:
+            # cv2.drawContours(frame, cnt, -1, (0, 255, 0), 3, 8)
+            area = cv2.contourArea(contour)
+            if area > self.detection_area:
+                #################
+                #   TRACKING    #
+                #################
+                moment = cv2.moments(contour)
+                cx = int(moment['m10'] / moment['m00'])
+                cy = int(moment['m01'] / moment['m00'])
+                x_rect, y_rect, w_rect, h_rect = cv2.boundingRect(contour)
+
+                new_person = True
+                for person in self.people:
+                    if abs(x_rect - person.getX()) <= w_rect and abs(y_rect - person.getY()) <= h_rect:
+                        # The person is near another one that was already detected
+                        new_person = False
+                        person.updateCoords(cx, cy)  # Update this person coordinates
+                        self.__draw_person(frame, cx, cy, x_rect, y_rect, w_rect, h_rect, person.getId())
+                        id_moving.append(person.getId())
+                        break
+
+                if new_person:  # and inside_convex_polygon((cx, cy), self.critical_area_points):
+                    p = Person(self.person_id, cx, cy, self.max_person_age)
+                    self.people.append(p)
+                    self.people_detected[self.person_id] = False
+                    self.person_id += 1
+                    self.__draw_person(frame, cx, cy, x_rect, y_rect, w_rect, h_rect, p.getId())
+                    id_moving.append(p.getId())
+                    print "New person, init points: %s,%s. Total: %s" % (cx, cy, str(len(self.people)))
+
+        self.people = [person for person in self.people if person.getId() in id_moving]
+        self.__calculate_in_and_out()
+
+    def __start_capture_windows(self):
+        stream = urllib.urlopen(self.source)
+        bytes = ''
+        background_substractor = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
+        kernel_open = np.ones((3, 3), np.uint8)
+        kernel_close = np.ones((11, 11), np.uint8)
+        while True:
+            bytes += stream.read(1024)
+            a = bytes.find('\xff\xd8')
+            b = bytes.find('\xff\xd9')
+            if a != -1 and b != -1:
+                jpg = bytes[a:b + 2]
+                bytes = bytes[b + 2:]
+                frame = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+                fgmask = background_substractor.apply(frame)  # Use the substractor
+                try:
+                    self.__process_streaming(frame, fgmask, kernel_open, kernel_close)
+                except:
+                    break
+                cv2.imshow(self.description, frame)
+                k = cv2.waitKey(30) & 0xff
+                if k == 27:
+                    break
+
+
+    def __start_capture_linux(self):
         capture = cv2.VideoCapture()
         capture.open(self.source)
         background_substractor = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
@@ -110,71 +196,21 @@ class Camera:
         frame_height = capture.get(4)
         while capture.isOpened():
             ret, frame = capture.read()  # read a frame
-
             fgmask = background_substractor.apply(frame)  # Use the substractor
             try:
-                ret, imBin = cv2.threshold(fgmask, 200, 255, cv2.THRESH_BINARY)
-                # Opening (erode->dilate) para quitar ruido.
-                mask = cv2.morphologyEx(imBin, cv2.MORPH_OPEN, kernel_open)
-                # Closing (dilate -> erode) para juntar regiones blancas.
-                mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close)
+                self.__process_streaming(frame, fgmask, kernel_open, kernel_close)
             except:
-                # if there are no more frames to show...
-                print('EOF')
                 break
-
-            # Draw the different areas
-            in_area = np.array(self.in_area_points, np.int32).reshape((-1, 1, 2))
-            out_area = np.array(self.out_area_points, np.int32).reshape((-1, 1, 2))
-            critical_area = np.array(self.critical_area_points, np.int32).reshape((-1, 1, 2))
-            #frame = cv2.polylines(frame, [in_area], isClosed=True, color=(255, 0, 0), thickness=2)
-            #frame = cv2.polylines(frame, [out_area], isClosed=True, color=(0, 255, 0), thickness=2)
-            frame2 = frame.copy()
-            frame2 = cv2.fillPoly(frame2, pts=[critical_area], color=(0, 0, 255))
-            opacity = 0.5
-            cv2.addWeighted(frame2, opacity, frame, 1 - opacity, 0, frame)
-            _, contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
-            id_moving = []
-            for contour in contours:
-                # cv2.drawContours(frame, cnt, -1, (0, 255, 0), 3, 8)
-                area = cv2.contourArea(contour)
-                if area > self.detection_area:
-                    #################
-                    #   TRACKING    #
-                    #################
-                    moment = cv2.moments(contour)
-                    cx = int(moment['m10'] / moment['m00'])
-                    cy = int(moment['m01'] / moment['m00'])
-                    x_rect, y_rect, w_rect, h_rect = cv2.boundingRect(contour)
-
-                    new_person = True
-                    for person in self.people:
-                        if abs(x_rect - person.getX()) <= w_rect and abs(y_rect - person.getY()) <= h_rect:
-                            # The person is near another one that was already detected
-                            new_person = False
-                            person.updateCoords(cx, cy)  # Update this person coordinates
-                            self.draw_person(frame, cx, cy, x_rect, y_rect, w_rect, h_rect, person.getId())
-                            id_moving.append(person.getId())
-                            break
-
-                    if new_person: #and inside_convex_polygon((cx, cy), self.critical_area_points):
-                        p = Person(self.person_id, cx, cy, self.max_person_age)
-                        self.people.append(p)
-                        self.people_detected[self.person_id] = False
-                        self.person_id += 1
-                        self.draw_person(frame, cx, cy, x_rect, y_rect, w_rect, h_rect, p.getId())
-                        id_moving.append(p.getId())
-                        print "New person, init points: %s,%s. Total: %s" % (cx, cy, str(len(self.people)))
-
-            self.people = [person for person in self.people if person.getId() in id_moving]
-            self.calculate_in_and_out()
             cv2.imshow(self.description, frame)
-
             # Abort and exit with 'Q' or ESC
             k = cv2.waitKey(30) & 0xff
             if k == 27:
                 break
-
         capture.release()  # release video file
-        #cv2.destroyAllWindows()  # close all openCV windows
+        cv2.destroyAllWindows()  # close all openCV windows
+
+    def start_capture(self):
+        if platform.system().upper() == "WINDOWS":
+            self.__start_capture_windows()
+        elif platform.system().upper() == "LINUX":
+            self.__start_capture_linux()
