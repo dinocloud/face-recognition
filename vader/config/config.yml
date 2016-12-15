@@ -1,5 +1,11 @@
+logging:
+   path: "/var/log/count.log"
+   level: "info"
+customer:
+  id: 1
+  name: "El pentagono"
 database:
-  engine: 'mysql' #Available database engines at http://docs.sqlalchemy.org/en/latest/core/engines.html
+  engine: 'mysql' #Avaiable database engines at http://docs.sqlalchemy.org/en/latest/core/engines.html
   server: 'localhost'
   database: 'people-recognition'
   username: 'root'

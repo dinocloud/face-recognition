@@ -1,8 +1,8 @@
 import numpy as np
 import cv2
 import sys
-from person import Person, MultiPerson
-from utils import inside_convex_polygon
+from software.person import Person, MultiPerson
+from software.utils import inside_convex_polygon
 
 print "########################DEPPRECATED#################################"
 print "Use main_objects.py instead."

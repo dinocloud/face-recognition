@@ -2,8 +2,8 @@ import cv2
 import sys
 import yaml
 from threading import Thread
-from camera import Camera
-from database import configure_database_connection
+from software.camera import Camera
+from software.database import configure_database_connection
 
 
 def get_configuration_from_file(yaml_file):
