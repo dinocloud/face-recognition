@@ -1,0 +1,13 @@
+[Unit]
+Description=Vader service
+
+[Service]
+User=fasaloni
+Group=www-data
+Environment=PATH=/home/fasaloni/face-recognition/vader/env/bin
+WorkingDirectory=/home/fasaloni/face-recognition/vader
+ExecStart=/usr/local/bin/uwsgi --ini vader.ini
+
+[Install]
+WantedBy=multi-user.targe
+

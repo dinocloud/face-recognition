@@ -1,10 +1,9 @@
-# Place it on /etc/nginx/sites-available/vader
 server {
     listen 80;
-    server_name fasaloni-K55A;
+    server_name localhost;
 
     location / {
         include uwsgi_params;
-        uwsgi_pass unix:/home/fasaloni/face-recognition/vader/vader.sock;
+        uwsgi_pass unix:///home/fasaloni/face-recognition/vader/vader.sock;
     }
 }
