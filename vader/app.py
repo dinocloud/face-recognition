@@ -23,7 +23,7 @@ def gen():
         for index, camera in enumerate(cameras):
             camera.single_capture(test=False)
             if camera.get_frame() is not None:
-                frame_list[index] = camera.get_frame().tobytes()
+                frame_list[index] = camera.get_frame()
             else:
                 frame_list[index] = cv2.imread('img/loading.jpg')
         cv2.imwrite('t.jpg', get_image_stack(frame_list))
@@ -39,4 +39,4 @@ def video_feed():
 
 if __name__ == '__main__':
     application.logger.addHandler(create_rotating_log('/var/log/count.log', 'info'))
-    application.run(host='0.0.0.0', debug=True, threaded=True)
+    application.run(host='0.0.0.0', threaded=True)
