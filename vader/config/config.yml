@@ -6,10 +6,10 @@ customer:
   name: "El pentagono"
 database:
   engine: 'mysql' #Avaiable database engines at http://docs.sqlalchemy.org/en/latest/core/engines.html
-  server: 'localhost'
-  database: 'people-recognition'
+  server: 'db-vader.c9m0fo1qyj7d.us-west-2.rds.amazonaws.com'
+  database: 'people_recognition'
   username: 'root'
-  password: 'armenia'
+  password: 'rootroot'
 cameras:
   - id: 1
     source: 'http://96.10.1.168/axis-cgi/mjpg/video.cgi?resolution=640x480'
