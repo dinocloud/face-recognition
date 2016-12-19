@@ -44,5 +44,5 @@ if __name__ == '__main__':
     for camera in cameras:
         camera.configure_streaming()
     frame_list = [camera.get_frame() for camera in cameras]  # Fills an array with "None" values
-    http_server = WSGIServer(('127.0.0.1', 8001), application.wsgi_app)
+    http_server = WSGIServer(('', 8001), application.wsgi_app)
     http_server.serve_forever()
