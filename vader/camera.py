@@ -4,12 +4,13 @@ import urllib
 import platform
 from utils import inside_convex_polygon
 from person import Person
-from database import save_movement
-
+from database import full_engine
+import time
+import datetime
 
 class Camera:
 
-    AREA_WEIGHT = 1
+    AREA_WEIGHT = 2
     CIRCLE_COLOR = (0, 0, 255)
     RECTANGLE_COLOR = (0, 255, 0)
     BACKGROUND_SUBSTRACTOR = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
@@ -18,9 +19,11 @@ class Camera:
     KERNEL_CLOSE = np.ones((11, 11), np.uint8)
 
     def __init__(self, id, source, description, in_area_points, out_area_points, critical_area_points,
-                 count_in=0, count_out=0, max_person_age=5, detection_area=300):
+                 count_in=0, count_out=0, max_person_age=5, detection_area=300, source_user=None, source_password=None):
         self.id = id
         self.source = source
+        self.source_user = source_user
+        self.source_password = source_password
         self.description = description
         self.in_area_points = in_area_points
         self.out_area_points = out_area_points
@@ -65,6 +68,14 @@ class Camera:
         cv2.rectangle(frame, (x, y), (x + w, y + h), Camera.RECTANGLE_COLOR, 2)
         # cv2.drawContours(frame, cnt, -1, Camera.RECTANGLE_COLOR, 3)
 
+    def __save_movement(self, type, id_camera):
+        timestamp = time.time()
+        formatted_timestamp = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')
+        connection = full_engine.connect()
+        result = connection.execute("insert into movements (timestamp, type, id_camera) "
+                                    "values ('{timestamp}','{type}',{id_camera})".format(timestamp=formatted_timestamp,
+                                                                                         type=type,
+                                                                                         id_camera=str(id_camera)))
     def __calculate_in_and_out(self):
         """
         Method that iterates over the persons array and counts how many people are entering and how many are going outside.
@@ -96,13 +107,13 @@ class Camera:
                             break
             if crit_area and in_area and not self.people_detected[person.getId()]:
                 self.count_in += 1
-                save_movement("in", self.id)
+                self.__save_movement("in", self.id)
                 print "Added in person. Camera: " + str(self.id) + " Id: " + str(person.getId()) + " In: " + str(self.count_in)
                 deletable_index.append(index)
                 self.people_detected[person.getId()] = True
             if crit_area and out_area and not self.people_detected[person.getId()]:
                 self.count_out += 1
-                save_movement("out", self.id)
+                self.__save_movement("out", self.id)
                 print "Added out person. Camera: " + str(self.id) + " Id: " + str(person.getId()) + " Out: " + str(self.count_out)
                 deletable_index.append(index)
                 self.people_detected[person.getId()] = True

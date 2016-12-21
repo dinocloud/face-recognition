@@ -1,32 +1,23 @@
 import sys
-
 import cv2
 import numpy as np
 import yaml
 
 from camera import Camera
-from database import configure_database_connection
 from logger import create_rotating_log
-
+from database import full_engine
 
 LOGGER = create_rotating_log('/var/log/count.log', 'info')
+
+
+def validate_tenant(tenant, key):
+    #TODO: This method will validate to an admin API if the tenant is valid
+    return True
 
 def get_configuration_from_file(yaml_file):
     with open(yaml_file, 'r') as file:
         config = yaml.load(file)
     return config
-
-
-def config_database(config):
-    LOGGER.info("Trying to configure database")
-    db_config = config.get("database")
-    LOGGER.debug("Database data. Engine: {engine}. Server: {server}. User: {username}. Password: {password}."
-                " Database: {database}".format(engine=db_config.get("engine"), server=db_config.get("server"),
-                                                username=db_config.get("username"), password=db_config.get("password"),
-                                                database=db_config.get("database")))
-    configure_database_connection(db_config.get("engine"), db_config.get("server"), db_config.get("username"),
-                                  db_config.get("password"), db_config.get("database"))
-    LOGGER.info("Database configured successfully")
 
 
 def config_logging(config):
@@ -67,12 +58,51 @@ def config_cameras(config, id_cameras):
     return cameras
 
 
-def config_everything_and_get_cameras(yaml_file, id_cameras, test=False):
+def get_cameras_from_tenant(id_tenant):
+    query = "SELECT id, source, detection_area, max_person_age, source_user, source_password, description FROM cameras WHERE " \
+            "id_tenant = {id_tenant}".format(id_tenant=str(id_tenant))
+    connection = full_engine.connect()
+    result = connection.execute(query)
+    cameras = []
+    for row in result:
+        id = int(row[0])
+        source = row[1]
+        detection_area = int(row[2])
+        max_person_age = int(row[3])
+        source_user = row[4]
+        source_password = row[5]
+        description = row[6]
+
+        #Calculating in_points
+        in_points = []
+        result_in = connection.execute("SELECT num_order, x_value, y_value FROM points WHERE id_camera = " + str(id) +
+                                       " AND id_area = " + str(1) + " ORDER BY num_order")
+        for in_row in result_in:
+            in_points.append([int(in_row[1]), int(in_row[2])])
+
+        crit_points = []
+        result_crit = connection.execute("SELECT num_order, x_value, y_value FROM points WHERE id_camera = " + str(id) +
+                                       " AND id_area = " + str(2) + " ORDER BY num_order")
+        for crit_row in result_crit:
+            crit_points.append([int(crit_row[1]), int(crit_row[2])])
+
+        out_points = []
+        result_out = connection.execute("SELECT num_order, x_value, y_value FROM points WHERE id_camera = " + str(id) +
+                                       " AND id_area = " + str(3) + " ORDER BY num_order")
+        for out_row in result_out:
+            out_points.append([int(out_row[1]), int(out_row[2])])
+
+        cam = Camera(id, source, description, in_points, out_points, crit_points, 0, 0,
+                     max_person_age, detection_area, source_user, source_password)
+        cameras.append(cam)
+
+    return cameras
+
+def config_everything_and_get_cameras(yaml_file, id_tenant, test=False):
     config = get_configuration_from_file(yaml_file)
     # config_logging(config)
-    if not test:
-        config_database(config)
-    cameras = config_cameras(config, id_cameras)
+    #cameras = config_cameras(config, id_tenant)
+    cameras = get_cameras_from_tenant(id_tenant)
     return cameras
 
 

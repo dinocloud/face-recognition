@@ -1,20 +1,16 @@
 from sqlalchemy import *
-import datetime
-import time
+import yaml
 
-full_engine = None
+with open('config/db.yml', 'r') as file:
+    config = yaml.load(file)
 
-def configure_database_connection(engine, host, user, password, database):
-    global full_engine
-    engine_string = '%s://%s:%s@%s/%s' % (engine, user, password, host, database)
-    print engine_string
-    full_engine = create_engine(engine_string)
+db_config = config.get("database")
 
-def save_movement(type, id_camera):
-    timestamp = time.time()
-    formatted_timestamp = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')
-    connection = full_engine.connect()
-    result = connection.execute("insert into movements (timestamp, type, id_camera) "
-                                "values ('{timestamp}','{type}',{id_camera})".format(timestamp=formatted_timestamp,
-                                                                                     type=type,
-                                                                                     id_camera=str(id_camera)))
+engine_string = '%s://%s:%s@%s/%s' % (db_config.get("engine"), db_config.get("username"), db_config.get("password"),
+                                  db_config.get("server"), db_config.get("database"))
+print engine_string
+
+full_engine = create_engine(engine_string)
+
+
+

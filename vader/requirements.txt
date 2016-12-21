@@ -1,0 +1,14 @@
+Flask==0.11.1
+Flask-Classy==0.6.8
+Flask-HTTPAuth==3.2.1
+Flask-SQLAlchemy==1.0
+Flask-Testing==0.4
+gevent==1.1.2
+greenlet==0.4.11
+mysql==0.0.1
+MySQL-python==1.2.5
+numpy==1.11.2
+PyMySQL==0.6.3
+PyYAML==3.12
+SQLAlchemy==0.8.3
+urllib3==1.19.1

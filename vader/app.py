@@ -1,7 +1,7 @@
 from flask import Flask, render_template, Response
 import cv2
-import threading
-from main import *
+import argparse
+from controller import *
 from logger import  create_rotating_log
 from camera import Camera
 import base64
@@ -11,7 +11,8 @@ from gevent.pywsgi import WSGIServer
 
 gevent.monkey.patch_all()
 application = Flask(__name__)
-
+cameras = []
+frame_list =  []
 @application.route('/')
 def index():
     """Video streaming home page."""
@@ -21,7 +22,7 @@ def index():
 def gen():
     LOGGER.info("Starting the program. Cameras count: %s" % str(len(cameras)))
     while True:
-        gevent.sleep(0.001)
+        gevent.sleep(0.1)
         for index, camera in enumerate(cameras):
             camera.single_capture(test=False)
             if camera.get_frame() is not None:
@@ -38,11 +39,30 @@ def video_feed():
     return Response(gen(),
                     mimetype='text/event-stream')
 
-if __name__ == '__main__':
+
+def setup():
+    parser = argparse.ArgumentParser(description='Application arguments')
+    parser.add_argument('--tenant', required=True, type=int, help='The id of the tenant to be executed')
+    parser.add_argument('--key', required=True, help='The token/key to authenticate to the tenant')
+    args = parser.parse_args()
+    tenant = args.tenant
+    if not validate_tenant(tenant, args.key):
+        print 'Tenant and key not valid. Exiting...'
+        sys.exit(1)
     global cameras
-    cameras = config_everything_and_get_cameras("config/config.yml", [1,2], test=False)
+    cameras = config_everything_and_get_cameras("config/config.yml", tenant, test=False)
     for camera in cameras:
         camera.configure_streaming()
+    global frame_list
     frame_list = [camera.get_frame() for camera in cameras]  # Fills an array with "None" values
+
+
+def main(args):
+    setup()
     http_server = WSGIServer(('', 8001), application.wsgi_app)
     http_server.serve_forever()
+
+
+if __name__ == '__main__':
+    main(sys.argv)
+

@@ -1,0 +1,6 @@
+database:
+  engine: 'mysql' #Avaiable database engines at http://docs.sqlalchemy.org/en/latest/core/engines.html
+  server: 'db-vader.c9m0fo1qyj7d.us-west-2.rds.amazonaws.com'
+  database: 'people_recognition'
+  username: 'root'
+  password: 'rootroot'

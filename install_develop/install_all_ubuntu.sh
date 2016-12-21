@@ -16,8 +16,8 @@ if command_exists python ; then
     echo "Python already exists, skipping"
 else
     echo "Installing dependencies for Python..."
-    sudo apt-get install build-essential checkinstall
-    sudo apt-get install libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev
+    sudo apt-get install -y wget build-essential checkinstall
+    sudo apt-get install -y libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev
     echo "Downloading python"
     wget https://www.python.org/ftp/python/2.7.12/Python-2.7.12.tgz
     check $?
@@ -27,7 +27,7 @@ else
     ./configure
     make
     check $?
-    sudo checkinstall
+    sudo checkinstall -y
     check $?
     cd -
 fi
