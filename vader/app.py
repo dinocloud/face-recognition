@@ -13,6 +13,8 @@ gevent.monkey.patch_all()
 application = Flask(__name__)
 cameras = []
 frame_list =  []
+
+
 @application.route('/')
 def index():
     """Video streaming home page."""
@@ -22,16 +24,16 @@ def index():
 def gen():
     LOGGER.info("Starting the program. Cameras count: %s" % str(len(cameras)))
     while True:
-        gevent.sleep(0.1)
+        gevent.sleep(0.01)
         for index, camera in enumerate(cameras):
             camera.single_capture(test=False)
             if camera.get_frame() is not None:
                 frame_list[index] = camera.get_frame()
             else:
                 frame_list[index] = cv2.imread('img/loading.jpg')
-        cv2.imwrite('t.jpg', get_image_stack(frame_list))
-        cv2.waitKey(15)
-        yield ('data: ' + base64.b64encode(open('t.jpg', 'rb').read()) + '\n\n')
+        #cv2.imwrite('t.jpg', get_image_stack(frame_list))
+        #cv2.waitKey(15)
+        yield ('data: ' + base64.b64encode(cv2.imencode('.jpg',get_image_stack(frame_list))[1]) + '\n\n')
 
 
 @application.route('/video_feed')
@@ -50,7 +52,7 @@ def setup():
         print 'Tenant and key not valid. Exiting...'
         sys.exit(1)
     global cameras
-    cameras = config_everything_and_get_cameras("config/config.yml", tenant, test=False)
+    cameras = config_everything_and_get_cameras(tenant, test=False)
     for camera in cameras:
         camera.configure_streaming()
     global frame_list
