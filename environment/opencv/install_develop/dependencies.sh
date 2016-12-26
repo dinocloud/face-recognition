@@ -5,7 +5,7 @@ sudo apt-get -qq remove ffmpeg x264 libx264-dev
 
 function install_dependency {
     echo "--- Installing dependency: $1"
-    sudo apt-get -y install $1
+    apt-get -y install $1
 }
 
 install_dependency libopencv-dev
