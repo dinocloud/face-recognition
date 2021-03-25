@@ -9,6 +9,6 @@ mysql==0.0.1
 MySQL-python==1.2.5
 numpy==1.11.2
 PyMySQL==0.6.3
-PyYAML==3.12
+PyYAML==5.4
 SQLAlchemy==0.8.3
 urllib3==1.19.1
